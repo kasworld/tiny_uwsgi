@@ -34,3 +34,17 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# sublime text
+*.sublime-project
+*.sublime-workspace
+
+# backup files
+*~
+*.swp
+*.bak
+*.log
+
+# protobuf
+*.pb.cc
+*.pb.h

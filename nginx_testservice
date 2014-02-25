@@ -1,0 +1,18 @@
+# tiny_uwsgi server
+server {
+    listen 18888 default_server;
+    server_name     $hostname;
+
+    location = /favicon.ico {
+            try_files favicon.ico /favicon.ico =204;
+            access_log      off;
+    }
+
+    location / {
+            uwsgi_pass     127.0.0.1:13030;
+            include          uwsgi_params;
+            uwsgi_param     UWSGI_SCHEME $scheme;
+            uwsgi_param     SERVER_SOFTWARE    nginx/$nginx_version;
+    }
+}
+
