@@ -15,21 +15,19 @@ import os
 import sys
 import traceback
 
+
 from httpconst import HTTP_CODE, CONTENT_TYPE
 
 # uwsgi specific
 try:
     import uwsgi
     from uwsgidecorators import postfork
-    srcdir = uwsgi.opt.get('ProgramBaseFolder', '.')
+    ServiceMode = True
 except:
+    ServiceMode = False
+
     def postfork(f):
-        print 'NOT uWSGI mode'
         return f
-    # to use commonlib
-    import os.path
-    srcdir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    #sys.path.append(os.path.join(os.path.split(srcdir)[0], 'commonlib'))
 
 ServiceDict = {
     'ServiceObjs': {},
@@ -160,7 +158,10 @@ class ServiceClassBase(object):
 def ServiceInit():
     print sys.version
     print __doc__, Version
-    print "server forked", uwsgi.worker_id()
+    if ServiceMode:
+        print "server forked", uwsgi.worker_id()
+    else:
+        print "server forked, Not Service mode"
 
     # additional init
     for ss in ServiceDict['serviceClasses']:
@@ -178,10 +179,12 @@ def uwsgiEntry(environ, start_response):
     try:
         serviceobjs = ServiceDict['ServiceObjs']
         servicename = request.path[0]
-        return serviceobjs[servicename].requestMainEntry(cookie, request, response)
+        rtn = serviceobjs[servicename].requestMainEntry(
+            cookie, request, response)
     except:
         print traceback.format_exc()
-        return response.responseError('Bad Request', code=400)
+        rtn = response.responseError('Bad Request', code=400)
+    return rtn
 
 
 def registerService(serviceClass):

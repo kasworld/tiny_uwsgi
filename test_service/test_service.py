@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""service main, service object
+"""tiny_uwsgi sample server
 made by kasw
 copyright 2014
 Version"""
@@ -21,6 +21,7 @@ class TestService(ServiceClassBase):
     serviceName = 'TestService'
 
     def __init__(self):
+        ServiceClassBase.__init__(self)
         # print TestService.dispatchFnDict
         pass
 
@@ -51,7 +52,10 @@ def testFn(serviceObj, *args, **kwdict):
 
 
 if __name__ == "__main__":
+    from tiny_uwsgi import ServiceInit
+    ServiceInit()
     print TestService().testFn(5)
+    pass
 
 
 # vim:ts=4:sw=4:et
