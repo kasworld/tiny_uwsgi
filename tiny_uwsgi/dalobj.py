@@ -90,7 +90,6 @@ class DBDataMixinBase(object):
         self.db.close()
 
 if __name__ == "__main__":
-
     dbconn = dict(
         uri="sqlite:memory",
     )

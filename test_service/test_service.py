@@ -1,61 +1,41 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""tiny_uwsgi sample server
+"""tiny_uwsgi sample server main
 made by kasw
 copyright 2014
 Version"""
 Version = '3.0.0'
 
-import traceback
+from tiny_uwsgi import getRequestEntry
+import service0
+import service1
+import service2
 
+config = dict(
+    Service1=dict(
+        dbconn=dict(
+            uri="sqlite:memory",
+        ),
 
-from tiny_uwsgi import ServiceClassBase, registerService
+        ObjDefs=(
+            ('userinfo',
+             ('username', 'string', dict(length=255, notnull=True)),
+             ('email', 'string', dict(length=255, notnull=True)),
+             ('phone', 'string', dict(length=255, notnull=True)),
+             ('joindate', 'datetime', dict(notnull=True))
+             ),
+        ),
+        IndexDef={
+            'userinfo': ('username', 'email'),
+        }
 
+    ),
+)
 
-class TestService(ServiceClassBase):
-
-    """ service class
-    """
-    dispatchFnDict = {}
-    serviceName = 'TestService'
-
-    def __init__(self):
-        ServiceClassBase.__init__(self)
-        # print TestService.dispatchFnDict
-        pass
-
-    def requestMainEntry(self, cookie, request, response):
-        try:
-            request.parseJsonPost()
-        except:
-            print traceback.format_exc()
-            return response.responseError('Bad Request', code=400)
-
-        try:
-            fnname = request.path[1]
-            result = TestService.dispatchFnDict[
-                fnname](request.args, request.json)
-        except:
-            print traceback.format_exc()
-            return response.responseError('Bad Request', code=400)
-        response.sendHeader()
-        return result
-
-application, exposeToURL = registerService(TestService)
-
-
-@exposeToURL
-def testFn(serviceObj, *args, **kwdict):
-    # http://hostname/TestService/testFn
-    return str(args) + str(kwdict)
-
+application = getRequestEntry(config)
 
 if __name__ == "__main__":
-    from tiny_uwsgi import ServiceInit
-    ServiceInit()
-    print TestService().testFn(5)
-    pass
-
-
-# vim:ts=4:sw=4:et
+    print service0.Service0.serviceName
+    print service1.Service1.serviceName
+    print service2.Service2.serviceName

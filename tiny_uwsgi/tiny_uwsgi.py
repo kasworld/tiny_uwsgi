@@ -11,7 +11,6 @@ import Cookie as pyCookie
 import urlparse
 import pprint
 import simplejson as json
-import os
 import sys
 import traceback
 
@@ -30,8 +29,9 @@ except:
         return f
 
 ServiceDict = {
-    'ServiceObjs': {},
-    'serviceClasses': [],
+    'Objs': {},
+    'Classes': [],
+    'Config': None
 }
 
 
@@ -54,12 +54,12 @@ class Request(object):
             pprint.pformat(self.args),
         )
 
-    def log(self, *args, **dargs):
+    def log(self, *args, **kwargs):
         s = ''
         if args:
             s += pprint.pformat(args) + '\n'
-        if dargs:
-            s += pprint.pformat(dargs) + '\n'
+        if kwargs:
+            s += pprint.pformat(kwargs) + '\n'
         self.logto.write(s)
 
     def parseJsonPost(self):
@@ -149,6 +149,9 @@ class ServiceClassBase(object):
     def getServiceDict(self):
         return ServiceDict
 
+    def getServiceConfig(self):
+        return ServiceDict['Config'][self.serviceName]
+
     def requestMainEntry(self, cookie, request, response):
         response.sendHeader()
         return 'OK'
@@ -164,9 +167,9 @@ def ServiceInit():
         print "server forked, Not Service mode"
 
     # additional init
-    for ss in ServiceDict['serviceClasses']:
-        ServiceDict['ServiceObjs'][ss.serviceName] = ss()
-    print ServiceDict
+    for ss in ServiceDict['Classes']:
+        ServiceDict['Objs'][ss.serviceName] = ss()
+    #print ServiceDict
 
 
 def uwsgiEntry(environ, start_response):
@@ -177,14 +180,14 @@ def uwsgiEntry(environ, start_response):
     response = Response(environ, start_response, cookie)
 
     try:
-        serviceobjs = ServiceDict['ServiceObjs']
+        serviceobjs = ServiceDict['Objs']
         servicename = request.path[0]
         rtn = serviceobjs[servicename].requestMainEntry(
             cookie, request, response)
     except:
         print traceback.format_exc()
         rtn = response.responseError('Bad Request', code=400)
-    return rtn
+    yield rtn
 
 
 def registerService(serviceClass):
@@ -193,5 +196,10 @@ def registerService(serviceClass):
         setattr(serviceClass, oldfn.__name__, oldfn)
         # print 'register', serviceClass.__name__, oldfn.__name__
         return oldfn
-    ServiceDict['serviceClasses'].append(serviceClass)
-    return uwsgiEntry, exposeToURL
+    ServiceDict['Classes'].append(serviceClass)
+    return exposeToURL
+
+
+def getRequestEntry(config):
+    ServiceDict['Config'] = config
+    return uwsgiEntry
