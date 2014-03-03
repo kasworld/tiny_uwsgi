@@ -28,7 +28,9 @@ class Service1(ServiceClassBase, DBDataMixinBase):
             self.config['dbconn']
         )
         self.loadAllTables(self.config['ObjDefs'])
-        #self.makeIndex(self.config['IndexDef'])
+        # self.makeIndex(self.config['IndexDef'])
+
+        self.makeTestData()
 
     def requestMainEntry(self, cookie, request, response):
         try:
@@ -47,10 +49,35 @@ class Service1(ServiceClassBase, DBDataMixinBase):
         response.sendHeader()
         return result
 
+    def makeTestData(self):
+        for i in range(10):
+            self.db['userinfo'].insert(
+                username='hello',
+                email='hello@world.com',
+                phone='0000',
+                joindate=datetime.datetime.now()
+            )
+
+
 exposeToURL = registerService(Service1)
+
+import datetime
+import pprint
 
 
 @exposeToURL
-def testFn(self, args, kwdict):
-    # http://hostname/Service1/testFn
-    return str(self.serviceName) + str(args) + str(kwdict)
+def dbInsert(self, args, kwdict):
+    i = self.db['userinfo'].insert(
+        username='hello',
+        email='hello@world.com',
+        phone='0000',
+        joindate=datetime.datetime.now()
+    )
+    return str(i)
+
+
+@exposeToURL
+def dbSelect(self, args, kwdict):
+    rows = self.db().select(self.db.userinfo.ALL, limitby=(0, 10))
+    # return pprint.pformat(rows.as_dict())
+    return str(len(rows))

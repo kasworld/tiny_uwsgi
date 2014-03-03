@@ -9,6 +9,7 @@ Version"""
 Version = '3.0.0'
 
 import traceback
+
 from tiny_uwsgi import ServiceClassBase, registerService
 
 
@@ -32,7 +33,7 @@ class Service0(ServiceClassBase):
         try:
             fnname = request.path[1]
             result = Service0.dispatchFnDict[
-                fnname](self, request.args, request.json)
+                fnname](self, cookie, request, response)
         except:
             print traceback.format_exc()
             return response.responseError('Bad Request', code=400)
@@ -42,7 +43,27 @@ class Service0(ServiceClassBase):
 exposeToURL = registerService(Service0)
 
 
+import pprint
+import uwsgi
+
+
 @exposeToURL
-def testFn(self, args, kwdict):
+def uwsgiInfo(self, cookie, request, response):
+    return pprint.pformat(uwsgi.__dict__)
+
+
+@exposeToURL
+def envInfo(self, cookie, request, response):
+    return pprint.pformat(request.environ)
+
+
+@exposeToURL
+def reqInfo(self, cookie, request, response):
+    return str(request)
+
+
+@exposeToURL
+def testFn(self, cookie, request, response):
     # http://hostname/Service0/testFn
+    args, kwdict = request.args, request.json
     return str(self.serviceName) + str(args) + str(kwdict)

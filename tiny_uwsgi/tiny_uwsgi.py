@@ -169,7 +169,7 @@ def ServiceInit():
     # additional init
     for ss in ServiceDict['Classes']:
         ServiceDict['Objs'][ss.serviceName] = ss()
-    #print ServiceDict
+    # print ServiceDict
 
 
 def uwsgiEntry(environ, start_response):
