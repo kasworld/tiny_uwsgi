@@ -29,8 +29,10 @@ config = dict(
         IndexDef={
             'userinfo': ('username', 'email'),
         },
-        profile=True
-    )
+    ),
+    SYSTEM={
+        'profile': True
+    }
 )
 
 application = getRequestEntry(config)

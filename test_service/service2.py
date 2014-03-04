@@ -22,8 +22,6 @@ import uwsgi
 import uwsgidecorators
 
 import traceback
-import signal
-import os
 from tiny_uwsgi import ServiceClassBase, registerService
 
 
@@ -95,17 +93,3 @@ def clock(self, cookie, request, response):
     return datetime.datetime.now().isoformat()
 
 
-@exposeToURL
-def stat(self, cookie, request, response):
-    # uwsgi.signal(signal.SIGUSR1)
-    os.kill(uwsgi.masterpid(), signal.SIGUSR1)
-    # uwsgi.masterpid()
-    return 'ok'
-
-
-# @exposeToURL
-# def profile(self, cookie, request, response):
-#     # uwsgi.signal(signal.SIGUSR1)
-#     os.kill(uwsgi.masterpid(), 98)
-#     # uwsgi.masterpid()
-#     return 'ok'

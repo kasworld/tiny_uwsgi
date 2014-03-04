@@ -10,13 +10,30 @@ Version = '3.0.0'
 import traceback
 import sys
 import signal
+import pprint
 try:
     import cProfile as profile
 except:
     import profile
 
+
+class FailSafe():
+
+    def requestMainEntry(self, cookie, request, response):
+        response.sendHeader()
+        return 'OK'
+
 ServiceDict = {
+    'favicon.ico': {
+        'obj': FailSafe(),
+        'class': FailSafe,
+    },
+    'SYSTEM': {
+        'profile': False,
+        'profileobj': None,
+    }
 }
+
 
 # uwsgi specific
 import uwsgi
@@ -32,17 +49,17 @@ def ServiceInit():
     print "server forked ", uwsgi.worker_id()
 
     # additional init
-    print ServiceDict
+    if ServiceDict['SYSTEM']['profile'] is True:
+        ServiceDict['SYSTEM']['profileobj'] = profile.Profile()
     for k, v in ServiceDict.iteritems():
+        if k in ['favicon.ico', 'SYSTEM']:
+            continue
         try:
             v['obj'] = v['class']()
-            if v['config']['profile'] is True:
-                v['profileobj'] = profile.Profile()
         except:
             print traceback.format_exc()
             print 'service init fail', k
-
-    print ServiceDict
+    pprint.pprint(ServiceDict)
 
 
 class ServiceClassBase(object):
@@ -54,7 +71,7 @@ class ServiceClassBase(object):
         return ServiceDict
 
     def getServiceConfig(self):
-        return ServiceDict[self.serviceName]['config']
+        return ServiceDict[self.serviceName]
 
     def requestMainEntry(self, cookie, request, response):
         response.sendHeader()
@@ -77,36 +94,31 @@ def uwsgiEntry(environ, start_response):
         return rtn
 
     try:
-        if service['config']['profile'] is True:
-            service['profileobj'].enable()
+        if ServiceDict['SYSTEM']['profile'] is True:
+            ServiceDict['SYSTEM']['profileobj'].enable()
         rtn = service['obj'].requestMainEntry(
             cookie, request, response)
     except:
         print traceback.format_exc()
         rtn = response.responseError('Bad Request', code=400)
     finally:
-        if service['config']['profile'] is True:
-            service['profileobj'].disable()
+        if ServiceDict['SYSTEM']['profile'] is True:
+            ServiceDict['SYSTEM']['profileobj'].disable()
 
     return rtn
 
 
-#@uwsgidecorators.signal(98)
-def printProfileResult(num):
-    for k, v in ServiceDict.iteritems():
-        if v['config']['profile'] is True:
-            v['profileobj'].print_stats()
-        else:
-            return 'No profile'
+def printProfileResult():
+    if ServiceDict['SYSTEM']['profile'] is True:
+        ServiceDict['SYSTEM']['profileobj'].print_stats()
+    else:
+        print 'No profile'
 
 
 def registerService(serviceClass):
-    print serviceClass.serviceName
-
     def exposeToURL(oldfn):
         serviceClass.dispatchFnDict[oldfn.__name__] = oldfn
         setattr(serviceClass, oldfn.__name__, oldfn)
-        # print 'register', serviceClass.__name__, oldfn.__name__
         return oldfn
     ServiceDict[serviceClass.serviceName] = {}
     ServiceDict[serviceClass.serviceName]['class'] = serviceClass
@@ -114,6 +126,6 @@ def registerService(serviceClass):
 
 
 def getRequestEntry(config):
-    for k, v in ServiceDict.iteritems():
-        ServiceDict[k]['config'] = config.get(k, {'profile': False})
+    for k, v in config.iteritems():
+        ServiceDict[k].update(config.get(k, {}))
     return uwsgiEntry

@@ -9,8 +9,12 @@ Version"""
 Version = '3.0.0'
 
 import traceback
+import os
+import signal
+import pprint
+import uwsgi
 
-from tiny_uwsgi import ServiceClassBase, registerService
+from tiny_uwsgi import ServiceClassBase, registerService, printProfileResult
 
 
 class Service0(ServiceClassBase):
@@ -43,10 +47,6 @@ class Service0(ServiceClassBase):
 exposeToURL = registerService(Service0)
 
 
-import pprint
-import uwsgi
-
-
 @exposeToURL
 def uwsgiInfo(self, cookie, request, response):
     return pprint.pformat(uwsgi.__dict__)
@@ -65,6 +65,20 @@ def reqInfo(self, cookie, request, response):
 @exposeToURL
 def sysInfo(self, cookie, request, response):
     return pprint.pformat(self.getServiceDict())
+
+
+@exposeToURL
+def stat(self, cookie, request, response):
+    # uwsgi.signal(signal.SIGUSR1)
+    os.kill(uwsgi.masterpid(), signal.SIGUSR1)
+    # uwsgi.masterpid()
+    return 'ok'
+
+
+@exposeToURL
+def profile(self, cookie, request, response):
+    printProfileResult()
+    return 'ok'
 
 
 @exposeToURL
