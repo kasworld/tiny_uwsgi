@@ -63,6 +63,11 @@ def reqInfo(self, cookie, request, response):
 
 
 @exposeToURL
+def sysInfo(self, cookie, request, response):
+    return pprint.pformat(self.getServiceDict())
+
+
+@exposeToURL
 def testFn(self, cookie, request, response):
     # http://hostname/Service0/testFn
     args, kwdict = request.args, request.json

@@ -7,138 +7,42 @@ copyright 2013,2014
 Version"""
 Version = '3.0.0'
 
-import Cookie as pyCookie
-import urlparse
-import pprint
-import simplejson as json
-import sys
 import traceback
-
-
-from httpconst import HTTP_CODE, CONTENT_TYPE
-
-# uwsgi specific
+import sys
+import signal
 try:
-    import uwsgi
-    from uwsgidecorators import postfork
-    ServiceMode = True
+    import cProfile as profile
 except:
-    ServiceMode = False
-
-    def postfork(f):
-        return f
+    import profile
 
 ServiceDict = {
-    'Objs': {},
-    'Classes': [],
-    'Config': None
 }
 
+# uwsgi specific
+import uwsgi
+import uwsgidecorators
 
-class Request(object):
-
-    def __init__(self, environ):
-        self.environ = environ
-        self.path = environ['PATH_INFO'].strip('/').split('/')
-        self.args = urlparse.parse_qs(environ['QUERY_STRING'])
-        self.logto = environ['wsgi.errors']
-        self.json = {}
-
-    def getPostFd(self):
-        return self.environ['wsgi.input']
-
-    def __str__(self):
-        return "Request:{\nvars:%s,\npath:%s,\nargs:%s\n}" % (
-            pprint.pformat(self.json),
-            pprint.pformat(self.path),
-            pprint.pformat(self.args),
-        )
-
-    def log(self, *args, **kwargs):
-        s = ''
-        if args:
-            s += pprint.pformat(args) + '\n'
-        if kwargs:
-            s += pprint.pformat(kwargs) + '\n'
-        self.logto.write(s)
-
-    def parseJsonPost(self):
-        fd = self.getPostFd()
-        postdata = fd.read()
-        if postdata:
-            self.json = json.loads(postdata)
-        return self.json
-
-    def parseFormPost(self):
-        fd = self.getPostFd()
-        postdata = fd.readline()
-        if postdata:
-            rtn = urlparse.parse_qs(postdata.decode(), True)
-            for k, v in rtn.iteritems():
-                self.json[k] = v[0]
-        return self.json
-
-    def parseGet(self):
-        return self.args
+from tiny_crr import Cookie, Request, Response
 
 
-class Response(object):
+@uwsgidecorators.postfork
+def ServiceInit():
+    print sys.version
+    print __doc__, Version
+    print "server forked ", uwsgi.worker_id()
 
-    def __init__(self, environ, start_response, cookie):
-        self.headers = [None, ]
-        # self.codestr = ''
-        self.cookie = cookie
-        self.start_response = start_response
+    # additional init
+    print ServiceDict
+    for k, v in ServiceDict.iteritems():
+        try:
+            v['obj'] = v['class']()
+            if v['config']['profile'] is True:
+                v['profileobj'] = profile.Profile()
+        except:
+            print traceback.format_exc()
+            print 'service init fail', k
 
-        self.setContentType('.txt')
-        self.setHTTPCode(200)
-
-    def sendHeader(self):
-        self.cookie.toHeader(self)
-        self.start_response(self.codestr, self.headers)
-
-    def setHTTPCode(self, c):
-        self.codestr = '%d %s' % (c, HTTP_CODE[c])
-
-    def addHeader(self, name, value):
-        self.headers.append((name, value))
-
-    def setRedirect(self, desturl):
-        self.setHTTPCode(303)
-        self.addHeader('Location', desturl)
-
-    def setContentType(self, s):
-        self.headers[0] = ('Content-type', CONTENT_TYPE[s])
-
-    def __str__(self):
-        return "Response:{\nheaders:%s,\ncodestr:%s\n}" % (
-            pprint.pformat(self.headers),
-            pprint.pformat(self.codestr),
-        )
-
-    def responseError(self, msg, code=404, msgtype='.txt'):
-        self.setHTTPCode(code)
-        self.setContentType(msgtype)
-        self.sendHeader()
-        return msg
-
-
-class Cookie(object):
-
-    def __init__(self, environ):
-        self.cookie = pyCookie.SimpleCookie()
-        if environ.get('HTTP_COOKIE'):
-            self.cookie.load(environ.get('HTTP_COOKIE'))
-
-    def toHeader(self, response):
-        for k in self.cookie:
-            response.headers.append((
-                'Set-Cookie', self.cookie[k].OutputString()))
-
-    def __str__(self):
-        return """Cookie:%s""" % (
-            pprint.pformat(self.cookie),
-        )
+    print ServiceDict
 
 
 class ServiceClassBase(object):
@@ -150,26 +54,11 @@ class ServiceClassBase(object):
         return ServiceDict
 
     def getServiceConfig(self):
-        return ServiceDict['Config'][self.serviceName]
+        return ServiceDict[self.serviceName]['config']
 
     def requestMainEntry(self, cookie, request, response):
         response.sendHeader()
         return 'OK'
-
-
-@postfork
-def ServiceInit():
-    print sys.version
-    print __doc__, Version
-    if ServiceMode:
-        print "server forked", uwsgi.worker_id()
-    else:
-        print "server forked, Not Service mode"
-
-    # additional init
-    for ss in ServiceDict['Classes']:
-        ServiceDict['Objs'][ss.serviceName] = ss()
-    # print ServiceDict
 
 
 def uwsgiEntry(environ, start_response):
@@ -180,26 +69,51 @@ def uwsgiEntry(environ, start_response):
     response = Response(environ, start_response, cookie)
 
     try:
-        serviceobjs = ServiceDict['Objs']
         servicename = request.path[0]
-        rtn = serviceobjs[servicename].requestMainEntry(
+        service = ServiceDict[servicename]
+    except:
+        print traceback.format_exc()
+        rtn = response.responseError('Bad Request', code=400)
+        return rtn
+
+    try:
+        if service['config']['profile'] is True:
+            service['profileobj'].enable()
+        rtn = service['obj'].requestMainEntry(
             cookie, request, response)
     except:
         print traceback.format_exc()
         rtn = response.responseError('Bad Request', code=400)
-    yield rtn
+    finally:
+        if service['config']['profile'] is True:
+            service['profileobj'].disable()
+
+    return rtn
+
+
+#@uwsgidecorators.signal(98)
+def printProfileResult(num):
+    for k, v in ServiceDict.iteritems():
+        if v['config']['profile'] is True:
+            v['profileobj'].print_stats()
+        else:
+            return 'No profile'
 
 
 def registerService(serviceClass):
+    print serviceClass.serviceName
+
     def exposeToURL(oldfn):
         serviceClass.dispatchFnDict[oldfn.__name__] = oldfn
         setattr(serviceClass, oldfn.__name__, oldfn)
         # print 'register', serviceClass.__name__, oldfn.__name__
         return oldfn
-    ServiceDict['Classes'].append(serviceClass)
+    ServiceDict[serviceClass.serviceName] = {}
+    ServiceDict[serviceClass.serviceName]['class'] = serviceClass
     return exposeToURL
 
 
 def getRequestEntry(config):
-    ServiceDict['Config'] = config
+    for k, v in ServiceDict.iteritems():
+        ServiceDict[k]['config'] = config.get(k, {'profile': False})
     return uwsgiEntry

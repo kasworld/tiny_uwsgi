@@ -9,7 +9,8 @@ Version"""
 Version = '3.0.0'
 
 import traceback
-from tiny_uwsgi import ServiceClassBase, DBDataMixinBase, registerService
+from tiny_uwsgi import ServiceClassBase, registerService
+from dalobj import DBDataMixinBase
 
 
 class Service1(ServiceClassBase, DBDataMixinBase):

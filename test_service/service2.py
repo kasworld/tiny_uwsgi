@@ -2,22 +2,35 @@
 # -*- coding: utf-8 -*-
 
 """tiny_uwsgi sample Service2
-advanced uwsgi use
+advanced uwsgi use , async, gevent
+
+check if
+gevent 1.0.0 or more install
+install locally
+pip install --user gevent
+
 made by kasw
 copyright 2014
 Version"""
 Version = '3.0.0'
 
-#import gevent
+import gevent
+if gevent.version_info < (1, 0, 0):
+    print 'gevent 1.0.0 or more need', gevent.version_info
+
 import uwsgi
+import uwsgidecorators
+
 import traceback
+import signal
+import os
 from tiny_uwsgi import ServiceClassBase, registerService
 
 
-# def microtask(wid):
-#     print "i am a gevent task"
-#     gevent.sleep(10)
-#     print "10 seconds elapsed in worker id %d" % wid
+def microtask(wid):
+    print "i am a gevent task"
+    gevent.sleep(10)
+    print "10 seconds elapsed in worker id %d" % wid
 
 
 class Service2(ServiceClassBase):
@@ -34,9 +47,8 @@ class Service2(ServiceClassBase):
         if not uwsgi.cache_exists('Service2Timer'):
             uwsgi.cache_set('Service2Timer', '0')
         print uwsgi.queue_size
-
-        # gevent.spawn(microtask, uwsgi.worker_id())
-        # print 'after gevent.spawn'
+        gevent.spawn(microtask, uwsgi.worker_id())
+        print 'after gevent.spawn'
 
     def requestMainEntry(self, cookie, request, response):
         try:
@@ -56,13 +68,11 @@ class Service2(ServiceClassBase):
         return result
 
 
-def hello_signal(num):
+@uwsgidecorators.timer(1)
+def hello_timer(num):
     i = int(uwsgi.cache_get('Service2Timer'))
     i += 1
     uwsgi.cache_update('Service2Timer', str(i))
-
-uwsgi.register_signal(99, "worker", hello_signal)
-uwsgi.add_timer(99, 1)
 
 
 exposeToURL = registerService(Service2)
@@ -83,3 +93,19 @@ def counter(self, cookie, request, response):
 def clock(self, cookie, request, response):
     #response.addHeader('refresh', '1')
     return datetime.datetime.now().isoformat()
+
+
+@exposeToURL
+def stat(self, cookie, request, response):
+    # uwsgi.signal(signal.SIGUSR1)
+    os.kill(uwsgi.masterpid(), signal.SIGUSR1)
+    # uwsgi.masterpid()
+    return 'ok'
+
+
+# @exposeToURL
+# def profile(self, cookie, request, response):
+#     # uwsgi.signal(signal.SIGUSR1)
+#     os.kill(uwsgi.masterpid(), 98)
+#     # uwsgi.masterpid()
+#     return 'ok'
