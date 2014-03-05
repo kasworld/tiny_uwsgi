@@ -5,7 +5,7 @@
 made by kasw
 copyright 2014
 Version"""
-Version = '3.0.0'
+Version = '3.1.0'
 
 from tiny_uwsgi import getRequestEntry
 import service0
@@ -13,6 +13,9 @@ import service1
 import service2
 
 config = dict(
+    Service0=dict(
+        profile=True
+    ),
     Service1=dict(
         dbconn=dict(
             uri="sqlite:memory",
@@ -29,9 +32,12 @@ config = dict(
         IndexDef={
             'userinfo': ('username', 'email'),
         },
+        profile=True
+    ),
+    Service2=dict(
+        profile=True
     ),
     SYSTEM={
-        'profile': True
     }
 )
 

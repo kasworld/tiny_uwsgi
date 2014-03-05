@@ -48,3 +48,6 @@ nosetests.xml
 # protobuf
 *.pb.cc
 *.pb.h
+
+# uwsgi tmp file
+uwsgi_spoolfile_on*

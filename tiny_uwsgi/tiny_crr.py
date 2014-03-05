@@ -6,7 +6,7 @@ crr : cookie , request, response
 made by kasw
 copyright 2013,2014
 Version"""
-Version = '3.0.0'
+Version = '3.1.0'
 
 import urlparse
 import pprint

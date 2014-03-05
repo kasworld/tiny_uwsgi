@@ -6,14 +6,16 @@ basic http service with db using web2py.dal
 made by kasw
 copyright 2014
 Version"""
-Version = '3.0.0'
+Version = '3.1.0'
 
 import traceback
-from tiny_uwsgi import ServiceClassBase, registerService
+import datetime
+import pprint
+from tiny_uwsgi import ServiceBase, ProfileMixin, DispatcherMixin_AD
 from dalobj import DBDataMixinBase
 
 
-class Service1(ServiceClassBase, DBDataMixinBase):
+class Service1(ServiceBase, ProfileMixin, DispatcherMixin_AD, DBDataMixinBase):
 
     """ service class
     """
@@ -21,7 +23,10 @@ class Service1(ServiceClassBase, DBDataMixinBase):
     serviceName = 'Service1'
 
     def __init__(self):
-        ServiceClassBase.__init__(self)
+        ServiceBase.__init__(self)
+        ProfileMixin.__init__(self)
+        DispatcherMixin_AD.__init__(self)
+
         self.config = self.getServiceConfig()
 
         DBDataMixinBase.__init__(
@@ -33,23 +38,6 @@ class Service1(ServiceClassBase, DBDataMixinBase):
 
         self.makeTestData()
 
-    def requestMainEntry(self, cookie, request, response):
-        try:
-            request.parseJsonPost()
-        except:
-            print traceback.format_exc()
-            return response.responseError('Bad Request', code=400)
-
-        try:
-            fnname = request.path[1]
-            result = Service1.dispatchFnDict[
-                fnname](self, request.args, request.json)
-        except:
-            print traceback.format_exc()
-            return response.responseError('Bad Request', code=400)
-        response.sendHeader()
-        return result
-
     def makeTestData(self):
         for i in range(10):
             self.db['userinfo'].insert(
@@ -60,13 +48,10 @@ class Service1(ServiceClassBase, DBDataMixinBase):
             )
 
 
-exposeToURL = registerService(Service1)
-
-import datetime
-import pprint
+Service1.registerService()
 
 
-@exposeToURL
+@Service1.exposeToURL
 def dbInsert(self, args, kwdict):
     i = self.db['userinfo'].insert(
         username='hello',
@@ -77,7 +62,7 @@ def dbInsert(self, args, kwdict):
     return str(i)
 
 
-@exposeToURL
+@Service1.exposeToURL
 def dbSelect(self, args, kwdict):
     rows = self.db().select(self.db.userinfo.ALL, limitby=(0, 10))
     # return pprint.pformat(rows.as_dict())

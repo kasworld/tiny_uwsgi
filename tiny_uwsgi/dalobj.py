@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""very thin python/uwsgi Framework
+made by kasw
+copyright 2013,2014
+Version"""
+Version = '3.1.0'
+
 try:
     from gluon import DAL, Field
 except:
